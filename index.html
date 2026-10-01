@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>행성뿌셔</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="app">
+    <header class="hud">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>행성뿌셔</h1>
+      </div>
+      <div class="stats">
+        <div class="stat moves">
+          <span class="label">남은 수</span>
+          <span id="moves" class="value">20</span>
+        </div>
+        <div class="stat goal">
+          <span class="label">목표</span>
+          <span id="goal" class="value"><span class="goal-icon" aria-hidden="true"></span>× <b id="goal-left">12</b></span>
+          <div class="goal-bar" aria-hidden="true"><i id="goal-fill"></i></div>
+        </div>
+        <div class="stat score">
+          <span class="label">점수</span>
+          <span id="score" class="value">0</span>
+        </div>
+      </div>
+    </header>
+    <main class="board-wrap">
+      <div class="board-frame">
+        <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
+        <div id="board" class="board" aria-label="게임 보드"></div>
+      </div>
+    </main>
+    <p id="message" class="message" role="status"></p>
+    <footer class="actions">
+      <button type="button" id="restart" class="btn-primary">다시 하기</button>
+    </footer>
+  </div>
+
+  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+    <div class="overlay-card">
+      <div id="overlay-badge" class="overlay-badge win" aria-hidden="true"></div>
+      <h2 id="overlay-title">클리어!</h2>
+      <p id="overlay-sub" class="overlay-sub">행성을 뿌셨어</p>
+      <div class="overlay-stats">
+        <div><span class="olabel">점수</span><span id="overlay-score">0</span></div>
+        <div><span class="olabel">남은 수</span><span id="overlay-moves">0</span></div>
+      </div>
+      <button type="button" id="overlay-restart" class="btn-primary">한 판 더</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

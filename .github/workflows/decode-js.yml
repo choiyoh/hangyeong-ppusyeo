@@ -1,0 +1,23 @@
+name: Decode game js
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode
+        run: |
+          python3 -c "import base64,gzip,pathlib; p=pathlib.Path('game.js.payload.b64').read_text().strip(); pathlib.Path('game.js').write_bytes(gzip.decompress(base64.b64decode(p))); print(len(pathlib.Path('game.js').read_bytes()))"
+          grep -c dragGhost game.js
+          rm -f game.js.payload.b64
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game.js
+          git rm -f game.js.payload.b64 2>/dev/null || true
+          git commit -m "Restore real game.js from payload" || exit 0
+          git push

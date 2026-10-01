@@ -1,1 +1,1 @@
-test
+@/workspace/hangyeong-ppusyeo/game.js

@@ -12,18 +12,23 @@ jobs:
         run: |
           set -euo pipefail
           python3 << 'PY'
-          import pathlib, base64, gzip, sys
+          import pathlib, base64, gzip, sys, hashlib
           root = pathlib.Path('.')
-          def restore(out_name, prefix):
+          def restore(out_name, prefix, expect_md5=None):
               parts = sorted(root.glob(prefix + '*'))
+              print('parts', [p.name for p in parts], [p.stat().st_size for p in parts])
               if not parts:
                   print('MISSING parts for', prefix, file=sys.stderr)
                   sys.exit(1)
               b64 = ''.join(p.read_text().strip() for p in parts)
-              data = gzip.decompress(base64.b64decode(b64))
+              pad = (-len(b64)) % 4
+              if pad:
+                  b64 += '=' * pad
+              raw = base64.b64decode(b64, validate=False)
+              data = gzip.decompress(raw)
               root.joinpath(out_name).write_bytes(data)
               text = data.decode('utf-8')
-              print(out_name, 'bytes', len(data))
+              print(out_name, 'bytes', len(data), 'md5', hashlib.md5(data).hexdigest())
               if out_name == 'game.js':
                   for needle in ('findLTShapes', 'special-wrap', 'dragGhost', 'WRAP_BEAT_MS'):
                       if needle not in text:
@@ -54,8 +59,7 @@ jobs:
           rm -f .github/workflows/restore-once.yml
           rm -f game.js.payload.b64.* style.css.payload.b64.* || true
           git add -A game.js style.css
-          git add -u .github/workflows/ || true
-          git add -u game.js.payload.b64.* style.css.payload.b64.* 2>/dev/null || true
+          git add -u || true
           git status
           if git diff --cached --quiet; then
             echo "nothing to commit"

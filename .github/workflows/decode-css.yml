@@ -11,6 +11,8 @@ jobs:
       - name: Decode style.css from base64 gzip parts
         run: |
           set -euo pipefail
+          # Repair known single-char MCP corruption in part2 if present
+          sed -i 's/kHepfPRw+3uPt+f3Nh+d/kHepfPRw+8uPt+f3Nh+d/' .github/payloads/style.part2.b64
           cat .github/payloads/style.part1.b64 .github/payloads/style.part2.b64 | tr -d '\n' | base64 -d | gzip -dc > style.css
           test -s style.css
           bytes=$(wc -c < style.css)

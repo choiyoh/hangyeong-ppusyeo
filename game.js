@@ -564,21 +564,7 @@
     return fx;
   }
 
-  async function clearAndRefill(clearSet, spawnSpecials = [], specialFx = []) {
-    render(clearSet);
-    const punchKind =
-      specialFx.find((f) => f.special === "special-bomb")?.special ||
-      specialFx.find((f) => f.special === "special-wrap")?.special ||
-      specialFx.find((f) => f.special === "special-line")?.special ||
-      specialFx.find((f) => f.special === "special-square")?.special ||
-      "match";
-    requestAnimationFrame(() => {
-      spawnBursts(clearSet);
-      spawnSpecialFx(specialFx);
-      punchBoard(punchKind);
-    });
-    await sleep(MATCH_MS);
-
+  function nullTiles(clearSet) {
     let clearedGoal = 0;
     clearSet.forEach((idx) => {
       const t = grid[idx];
@@ -587,29 +573,9 @@
       score += 10;
     });
     goalLeft = Math.max(0, goalLeft - clearedGoal);
+  }
 
-    const wrapFx = specialFx.filter((f) => f.special === "special-wrap");
-    if (wrapFx.length) {
-      await sleep(WRAP_BEAT_MS);
-      spawnSpecialFx(wrapFx);
-      punchBoard("special-wrap");
-      await sleep(Math.round(MATCH_MS * 0.75));
-    }
-
-    const spawnMap = new Map();
-    for (const s of spawnSpecials) {
-      if (!clearSet.has(s.idx) && grid[s.idx] != null) continue;
-      const prev = spawnMap.get(s.idx);
-      const rank = { "special-bomb": 4, "special-wrap": 3, "special-line": 2, "special-square": 1 };
-      if (!prev || (rank[s.special] || 0) > (rank[prev.special] || 0)) {
-        spawnMap.set(s.idx, s);
-      }
-    }
-    spawnMap.forEach((s, idx) => {
-      grid[idx] = makeTile(s.type, s.special);
-      if (s.axis) grid[idx].axis = s.axis;
-    });
-
+  async function applyGravity() {
     const fallFrom = new Map();
     for (let c = 0; c < SIZE; c++) {
       let write = SIZE - 1;
@@ -633,6 +599,79 @@
       el.style.transform = "";
     });
     await sleep(FALL_MS);
+  }
+
+  function placeSpawnSpecials(spawnSpecials, reservedEmpty) {
+    const spawnMap = new Map();
+    for (const s of spawnSpecials) {
+      if (!reservedEmpty.has(s.idx) && grid[s.idx] != null) continue;
+      const prev = spawnMap.get(s.idx);
+      const rank = { "special-bomb": 4, "special-wrap": 3, "special-line": 2, "special-square": 1 };
+      if (!prev || (rank[s.special] || 0) > (rank[prev.special] || 0)) {
+        spawnMap.set(s.idx, s);
+      }
+    }
+    spawnMap.forEach((s, idx) => {
+      grid[idx] = makeTile(s.type, s.special);
+      if (s.axis) grid[idx].axis = s.axis;
+    });
+    return spawnMap;
+  }
+
+  async function clearPulse(clearSet, specialFx, punchKind) {
+    render(clearSet);
+    requestAnimationFrame(() => {
+      spawnBursts(clearSet);
+      spawnSpecialFx(specialFx);
+      punchBoard(punchKind);
+    });
+    await sleep(MATCH_MS);
+  }
+
+  async function clearAndRefill(clearSet, spawnSpecials = [], specialFx = []) {
+    const wrapCenters = specialFx
+      .filter((f) => f.special === "special-wrap")
+      .map((f) => f.idx);
+    const punchKind =
+      specialFx.find((f) => f.special === "special-bomb")?.special ||
+      specialFx.find((f) => f.special === "special-wrap")?.special ||
+      specialFx.find((f) => f.special === "special-line")?.special ||
+      specialFx.find((f) => f.special === "special-square")?.special ||
+      "match";
+
+    await clearPulse(clearSet, specialFx, punchKind);
+    nullTiles(clearSet);
+
+    if (wrapCenters.length) {
+      // First gravity fills the crater; spawn specials wait until after wrap pulses
+      // so random refill tiles don't steal match-spawn cells permanently.
+      await applyGravity();
+      await sleep(WRAP_BEAT_MS);
+
+      let second = new Set();
+      for (const idx of wrapCenters) {
+        expandSpecialClear(idx, "special-wrap", "h").forEach((i) => second.add(i));
+      }
+      second = gatherClears(second);
+
+      if (second.size) {
+        const secondFx = wrapCenters.map((idx) => ({
+          idx,
+          special: "special-wrap",
+          axis: "h",
+        }));
+        await clearPulse(second, secondFx, "special-wrap");
+        nullTiles(second);
+        await applyGravity();
+      }
+
+      // Force-place match-spawned specials into their idx (replace any random that fell in)
+      placeSpawnSpecials(spawnSpecials, new Set(spawnSpecials.map((s) => s.idx)));
+      if (spawnSpecials.length) render();
+    } else {
+      placeSpawnSpecials(spawnSpecials, clearSet);
+      await applyGravity();
+    }
   }
 
   function wouldCreateMatchAfterSwap(a, b) {

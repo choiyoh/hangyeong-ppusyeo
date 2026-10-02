@@ -12,6 +12,7 @@
     "special-line": "줄클리어",
     "special-bomb": "폭발",
     "special-square": "사각 특수",
+    "special-wrap": "포장",
   };
 
   const START_MOVES = 20;
@@ -20,6 +21,7 @@
   const FALL_MS = 260;
   const SWAP_MS = 150;
   const MATCH_MS = 340;
+  const WRAP_BEAT_MS = 220;
 
   const boardEl = document.getElementById("board");
   const fxLayer = document.getElementById("fx-layer");
@@ -149,6 +151,37 @@
     return squares;
   }
 
+
+  function findLTShapes(runs) {
+    const shapes = [];
+    const horiz = runs.filter((r) => r.dir === "h" && r.len >= 3);
+    const vert = runs.filter((r) => r.dir === "v" && r.len >= 3);
+    for (const h of horiz) {
+      const hSet = new Set(h.cells.map((p) => p.r * SIZE + p.c));
+      for (const v of vert) {
+        if (h.type !== v.type) continue;
+        let corner = null;
+        for (const p of v.cells) {
+          const idx = p.r * SIZE + p.c;
+          if (hSet.has(idx)) {
+            corner = p;
+            break;
+          }
+        }
+        if (!corner) continue;
+        const cellMap = new Map();
+        for (const p of h.cells) cellMap.set(p.r * SIZE + p.c, p);
+        for (const p of v.cells) cellMap.set(p.r * SIZE + p.c, p);
+        shapes.push({
+          type: h.type,
+          cells: [...cellMap.values()],
+          corner,
+        });
+      }
+    }
+    return shapes;
+  }
+
   function pickSpawn(cells) {
     if (lastSwap) {
       const hit = cells.find(
@@ -165,33 +198,53 @@
     const matched = new Set();
     const specials = [];
     const runs = collectRuns();
-    const coveredByLong = new Set();
+    const covered = new Set();
 
     for (const run of runs) {
       for (const p of run.cells) matched.add(p.r * SIZE + p.c);
-      if (run.len >= 5) {
-        const spawn = pickSpawn(run.cells);
-        specials.push({
-          idx: spawn.r * SIZE + spawn.c,
-          special: "special-bomb",
-          type: run.type,
-        });
-        run.cells.forEach((p) => coveredByLong.add(p.r * SIZE + p.c));
-      } else if (run.len === 4) {
-        const spawn = pickSpawn(run.cells);
-        specials.push({
-          idx: spawn.r * SIZE + spawn.c,
-          special: "special-line",
-          type: run.type,
-          axis: run.dir === "h" ? "v" : "h",
-        });
-        run.cells.forEach((p) => coveredByLong.add(p.r * SIZE + p.c));
-      }
+    }
+
+    // Priority: bomb (len≥5) > L/T wrap > line (len===4) > 2×2 square
+    for (const run of runs) {
+      if (run.len < 5) continue;
+      const spawn = pickSpawn(run.cells);
+      specials.push({
+        idx: spawn.r * SIZE + spawn.c,
+        special: "special-bomb",
+        type: run.type,
+      });
+      run.cells.forEach((p) => covered.add(p.r * SIZE + p.c));
+    }
+
+    for (const shape of findLTShapes(runs)) {
+      const cornerIdx = shape.corner.r * SIZE + shape.corner.c;
+      if (covered.has(cornerIdx)) continue;
+      const spawn = pickSpawn(shape.cells);
+      specials.push({
+        idx: spawn.r * SIZE + spawn.c,
+        special: "special-wrap",
+        type: shape.type,
+      });
+      shape.cells.forEach((p) => covered.add(p.r * SIZE + p.c));
+    }
+
+    for (const run of runs) {
+      if (run.len !== 4) continue;
+      const spawn = pickSpawn(run.cells);
+      const spawnIdx = spawn.r * SIZE + spawn.c;
+      if (covered.has(spawnIdx)) continue;
+      specials.push({
+        idx: spawnIdx,
+        special: "special-line",
+        type: run.type,
+        axis: run.dir === "h" ? "v" : "h",
+      });
+      run.cells.forEach((p) => covered.add(p.r * SIZE + p.c));
     }
 
     for (const sq of findSquares()) {
       const idxs = sq.cells.map((p) => p.r * SIZE + p.c);
-      if (idxs.every((i) => coveredByLong.has(i))) continue;
+      if (idxs.every((i) => covered.has(i))) continue;
       idxs.forEach((i) => matched.add(i));
       const spawn = pickSpawn(sq.cells);
       specials.push({
@@ -223,7 +276,7 @@
           if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) clear.add(r * SIZE + c);
         }
       }
-    } else if (special === "special-square") {
+    } else if (special === "special-square" || special === "special-wrap") {
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
           const r = r0 + dr;
@@ -279,16 +332,18 @@
   function punchBoard(kind) {
     const frame = boardEl?.closest(".board-frame");
     if (!frame) return;
-    frame.classList.remove("punch-line", "punch-bomb", "punch-square", "punch-match");
+    frame.classList.remove("punch-line", "punch-bomb", "punch-square", "punch-wrap", "punch-match");
     void frame.offsetWidth;
     const cls =
       kind === "special-line"
         ? "punch-line"
         : kind === "special-bomb"
           ? "punch-bomb"
-          : kind === "special-square"
-            ? "punch-square"
-            : "punch-match";
+          : kind === "special-wrap"
+            ? "punch-wrap"
+            : kind === "special-square"
+              ? "punch-square"
+              : "punch-match";
     frame.classList.add(cls);
     setTimeout(() => frame.classList.remove(cls), 420);
   }
@@ -310,6 +365,7 @@
     "special-line": { shape: "beam", colors: ["#fff8d0", "#ffd76a", "#fff"], n: 5, liteN: 3 },
     "special-bomb": { shape: "flash", colors: ["#ffe0ff", "#ff5ec8", "#9b2bff"], n: 9, liteN: 6 },
     "special-square": { shape: "box", colors: ["#e8ffff", "#3ad0ff", "#7ee0ff"], n: 5, liteN: 3 },
+    "special-wrap": { shape: "shell", colors: ["#fff", "#ff9ad5", "#ff7ab8"], n: 7, liteN: 5 },
   };
 
   function spawnBursts(matched) {
@@ -367,7 +423,9 @@
           ? "fx-line"
           : special === "special-bomb"
             ? "fx-bomb"
-            : "fx-square";
+            : special === "special-wrap"
+              ? "fx-wrap"
+              : "fx-square";
       fx.className = `special-fx ${kind}`;
       if (special === "special-line") fx.dataset.axis = axis || "h";
       fx.style.left = `${center.x}px`;
@@ -510,6 +568,7 @@
     render(clearSet);
     const punchKind =
       specialFx.find((f) => f.special === "special-bomb")?.special ||
+      specialFx.find((f) => f.special === "special-wrap")?.special ||
       specialFx.find((f) => f.special === "special-line")?.special ||
       specialFx.find((f) => f.special === "special-square")?.special ||
       "match";
@@ -529,11 +588,19 @@
     });
     goalLeft = Math.max(0, goalLeft - clearedGoal);
 
+    const wrapFx = specialFx.filter((f) => f.special === "special-wrap");
+    if (wrapFx.length) {
+      await sleep(WRAP_BEAT_MS);
+      spawnSpecialFx(wrapFx);
+      punchBoard("special-wrap");
+      await sleep(Math.round(MATCH_MS * 0.75));
+    }
+
     const spawnMap = new Map();
     for (const s of spawnSpecials) {
       if (!clearSet.has(s.idx) && grid[s.idx] != null) continue;
       const prev = spawnMap.get(s.idx);
-      const rank = { "special-bomb": 3, "special-line": 2, "special-square": 1 };
+      const rank = { "special-bomb": 4, "special-wrap": 3, "special-line": 2, "special-square": 1 };
       if (!prev || (rank[s.special] || 0) > (rank[prev.special] || 0)) {
         spawnMap.set(s.idx, s);
       }

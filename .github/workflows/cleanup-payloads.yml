@@ -1,0 +1,26 @@
+name: Cleanup leftover payloads once
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove leftover payload trees and this workflow
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf .github/payloads
+          rm -f .github/workflows/cleanup-payloads.yml
+          rm -f game.js.payload.b64.* style.css.payload.b64.* || true
+          git add -u
+          git status
+          if git diff --cached --quiet; then
+            echo nothing
+            exit 0
+          fi
+          git commit -m "Remove leftover .github/payloads after L/T wrap ship"
+          git push

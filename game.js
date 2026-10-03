@@ -15,9 +15,16 @@
     "special-wrap": "포장",
   };
 
-  const START_MOVES = 20;
-  const GOAL_TYPE = "crater";
-  const GOAL_COUNT = 12;
+  const STAGES = [
+    { moves: 20, goalType: "crater", goalCount: 12 },
+    { moves: 20, goalType: "crater", goalCount: 15 },
+    { moves: 17, goalType: "crater", goalCount: 15 },
+    { moves: 17, goalType: "cloud", goalCount: 15 },
+    { moves: 14, goalType: "cloud", goalCount: 18 },
+  ];
+  let stageIndex = 0; // 0-based
+  let GOAL_TYPE = STAGES[0].goalType;
+  let GOAL_COUNT = STAGES[0].goalCount;
   const FALL_MS = 260;
   const SWAP_MS = 150;
   const MATCH_MS = 340;
@@ -38,12 +45,18 @@
   const overlayBadge = document.getElementById("overlay-badge");
   const overlayRestart = document.getElementById("overlay-restart");
   const goalFill = document.getElementById("goal-fill");
+  const stageChipEl = document.getElementById("stage-chip");
+  const stageLabelEl = document.getElementById("stage-label");
+  const nextStageBtn = document.getElementById("btn-next-stage");
+  const goalIconEl = document.querySelector(".goal-icon");
+  const goalLabelEl = document.querySelector(".stat.goal .label");
 
   let grid = [];
   let selected = null;
   let busy = false;
-  let moves = START_MOVES;
+  let moves = STAGES[0].moves;
   let score = 0;
+  let stageStartScore = 0;
   let goalLeft = GOAL_COUNT;
   let gameOver = false;
   let lastSwap = null;
@@ -765,10 +778,31 @@
     card.classList.toggle("win-state", win);
     card.classList.toggle("lose-state", !win);
     overlayBadge.className = `overlay-badge ${win ? "win" : "lose"}`;
-    overlayTitle.textContent = win ? "클리어!" : "실패…";
-    overlaySub.textContent = win ? "행성을 뿌셨어" : "수가 모자라";
     overlayScore.textContent = String(score);
     overlayMoves.textContent = String(Math.max(0, moves));
+    const last = stageIndex >= STAGES.length - 1;
+    if (win && !last) {
+      overlayTitle.textContent = "클리어!";
+      overlaySub.textContent = `${stageIndex + 1}단계 완료`;
+      if (nextStageBtn) nextStageBtn.hidden = false;
+      if (overlayRestart) overlayRestart.hidden = true;
+    } else if (win) {
+      overlayTitle.textContent = "클리어!";
+      overlaySub.textContent = "행성을 뿌셨어";
+      if (nextStageBtn) nextStageBtn.hidden = true;
+      if (overlayRestart) {
+        overlayRestart.hidden = false;
+        overlayRestart.textContent = "한 판 더";
+      }
+    } else {
+      overlayTitle.textContent = "실패…";
+      overlaySub.textContent = "수가 모자라";
+      if (nextStageBtn) nextStageBtn.hidden = true;
+      if (overlayRestart) {
+        overlayRestart.hidden = false;
+        overlayRestart.textContent = "다시 도전";
+      }
+    }
     overlayEl.classList.remove("hidden");
   }
 
@@ -955,24 +989,84 @@
     busy = false;
   }
 
-  function restart() {
-    moves = START_MOVES;
-    score = 0;
-    goalLeft = GOAL_COUNT;
+  function goalTypeName(id) {
+    return TYPES.find((t) => t.id === id)?.name || id;
+  }
+
+  function syncStageHud() {
+    const n = String(stageIndex + 1);
+    document.body.dataset.stage = n;
+    const frame = boardEl?.closest(".board-frame");
+    if (frame) frame.dataset.stage = n;
+    const app = document.getElementById("app") || document.querySelector(".app");
+    if (app) app.dataset.stage = n;
+    // Art chip is the stage number; CSS ::before adds "STAGE ".
+    if (stageChipEl) stageChipEl.textContent = n;
+    if (stageLabelEl) stageLabelEl.textContent = `${n}/${STAGES.length}`;
+    const name = goalTypeName(GOAL_TYPE);
+    if (goalLabelEl) goalLabelEl.textContent = name;
+    if (goalIconEl) {
+      goalIconEl.classList.toggle("cloud", GOAL_TYPE === "cloud");
+      goalIconEl.title = name;
+    }
+  }
+
+  function loadStageConfig() {
+    const s = STAGES[stageIndex];
+    moves = s.moves;
+    GOAL_TYPE = s.goalType;
+    GOAL_COUNT = s.goalCount;
+    goalLeft = s.goalCount;
+  }
+
+  function beginStage() {
+    loadStageConfig();
+    stageStartScore = score;
     gameOver = false;
     selected = null;
     busy = false;
     lastSwap = null;
+    pointerGesture = null;
     messageEl.textContent = "";
     hideOverlay();
     clearDragGhost();
     if (fxLayer) fxLayer.innerHTML = "";
+    if (nextStageBtn) nextStageBtn.hidden = true;
+    if (overlayRestart) {
+      overlayRestart.hidden = false;
+      overlayRestart.textContent = "한 판 더";
+    }
     fillNoMatch();
+    syncStageHud();
     render();
     ensureMoves();
   }
 
-  restartBtn.addEventListener("click", restart);
-  if (overlayRestart) overlayRestart.addEventListener("click", restart);
-  restart();
+  function fullRestart() {
+    stageIndex = 0;
+    score = 0;
+    beginStage();
+  }
+
+  function retryStage() {
+    score = stageStartScore;
+    beginStage();
+  }
+
+  function advanceStage() {
+    if (stageIndex >= STAGES.length - 1) return;
+    stageIndex += 1;
+    beginStage();
+  }
+
+  function onOverlayRestart() {
+    const clearedLast = goalLeft <= 0 && stageIndex >= STAGES.length - 1;
+    if (clearedLast) fullRestart();
+    else retryStage();
+  }
+
+  restartBtn.addEventListener("click", fullRestart);
+  if (overlayRestart) overlayRestart.addEventListener("click", onOverlayRestart);
+  if (nextStageBtn) nextStageBtn.addEventListener("click", advanceStage);
+  fullRestart();
 })();

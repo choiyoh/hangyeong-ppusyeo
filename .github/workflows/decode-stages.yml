@@ -1,0 +1,69 @@
+name: decode-stages
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode game.js and style.css from gzip base64
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import base64, gzip, hashlib, pathlib
+          def dec(parts, dest, expect):
+              data = "".join(pathlib.Path(p).read_text().split() for p in parts)
+              raw = gzip.decompress(base64.b64decode(data))
+              digest = hashlib.sha256(raw).hexdigest()
+              if digest != expect:
+                  raise SystemExit(f"{dest} sha mismatch {digest}")
+              if b"FILE_CONTENT" in raw:
+                  raise SystemExit(f"{dest} has FILE_CONTENT placeholder")
+              pathlib.Path(dest).write_bytes(raw)
+              print(dest, len(raw), digest)
+          dec(
+              [".github/payloads/game.js.part1.b64", ".github/payloads/game.js.part2.b64"],
+              "game.js",
+              "be962fee7b702e66c2e4ab498d77af1957a2d1ffbf40c646155b510534ef71a3",
+          )
+          dec(
+              [".github/payloads/style.css.part1.b64", ".github/payloads/style.css.part2.b64"],
+              "style.css",
+              "3e17de1f8997f9ccbc601dd81f7d9e3350ded93e4087294a91e1aee6853b9e92",
+          )
+          html = pathlib.Path("index.html").read_bytes()
+          h = hashlib.sha256(html).hexdigest()
+          expect_html = "fff0ae670561ed1dcf99cf51a3b1eb61d9b5ea6d31c6b22b06a8253a0d100c67"
+          if h != expect_html:
+              raise SystemExit(f"index.html sha mismatch {h}")
+          js = pathlib.Path("game.js").read_text()
+          css = pathlib.Path("style.css").read_text()
+          html_t = html.decode()
+          for needle in ("const STAGES", "goalCount: 18", "advanceStage", "special-wrap", "dragGhost"):
+              if needle not in js:
+                  raise SystemExit("missing in game.js: " + needle)
+          for needle in ('body[data-stage="5"]', ".goal-icon.cloud", ".stage-chip"):
+              if needle not in css:
+                  raise SystemExit("missing in style.css: " + needle)
+          for needle in ('id="stage-chip"', 'id="btn-next-stage"'):
+              if needle not in html_t:
+                  raise SystemExit("missing in index.html: " + needle)
+          print("verified")
+          PY
+      - name: Commit decoded files and remove payload + workflow
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf .github/payloads
+          rm -f .github/workflows/decode-stages.yml
+          git add game.js style.css index.html
+          git add -u .github
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "Add 5-stage progression (crater then cloud goals)"
+          git push

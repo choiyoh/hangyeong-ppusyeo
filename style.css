@@ -1106,3 +1106,19 @@ body[data-stage="5"] .board-frame {
 body[data-stage="5"] .stage-chip {
   background: linear-gradient(180deg, #e8fbff, #7ee0ff);
 }
+
+
+.btn-ghost {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.btn-ghost:active { opacity: 1; transform: scale(0.98); }
+.actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }

@@ -1065,7 +1065,9 @@
     else retryStage();
   }
 
-  restartBtn.addEventListener("click", fullRestart);
+  restartBtn.addEventListener("click", retryStage);
+  const fullRestartBtn = document.getElementById("full-restart");
+  if (fullRestartBtn) fullRestartBtn.addEventListener("click", fullRestart);
   if (overlayRestart) overlayRestart.addEventListener("click", onOverlayRestart);
   if (nextStageBtn) nextStageBtn.addEventListener("click", advanceStage);
   fullRestart();

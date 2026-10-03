@@ -14,7 +14,7 @@ jobs:
           python3 - << 'PY'
           import base64, gzip, hashlib, pathlib
           def dec(parts, dest, expect):
-              data = "".join(pathlib.Path(p).read_text().split() for p in parts)
+              data = "".join("".join(pathlib.Path(p).read_text().split()) for p in parts)
               raw = gzip.decompress(base64.b64decode(data))
               digest = hashlib.sha256(raw).hexdigest()
               if digest != expect:

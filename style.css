@@ -354,7 +354,7 @@ html, body {
   box-shadow: 0 0 6px #fff;
 }
 
-/* 폭탄: 뾰족한 별 */
+/* 폭탄: 뽑족한 별 */
 .planet.special-bomb {
   width: 78%;
   height: 78%;
@@ -1110,15 +1110,19 @@ body[data-stage="5"] .stage-chip {
 
 .btn-ghost {
   appearance: none;
-  border: 1px solid rgba(255,255,255,0.35);
+  border: none;
   background: transparent;
-  color: inherit;
+  color: var(--muted);
   font: inherit;
-  font-weight: 700;
-  padding: 0.65rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
   border-radius: 999px;
   cursor: pointer;
-  opacity: 0.85;
+  opacity: 0.55;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
+.btn-ghost:hover { opacity: 0.85; }
 .btn-ghost:active { opacity: 1; transform: scale(0.98); }
 .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }

@@ -52,3 +52,69 @@
   .stat.moves.low-moves .value, .tile.invalid-shake .planet, .tile.hint .planet, .tile.hint::after { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
   .stage-banner.show { opacity: 1; transform: translate(-50%, -50%); }
 }
+
+/* ===== 리뷰 재수정 (아트) ===== */
+
+/* 1-a. HUD 목표 아이콘 28px 실제 적용 (기본 16px 규칙보다 우선) */
+.stat.goal .value .goal-icon,
+#goal .goal-icon {
+  width: 28px !important;
+  height: 28px !important;
+  flex: none;
+  box-shadow: inset -2px -3px 0 rgba(0,0,0,0.22), 0 0 10px rgba(255,140,120,0.55);
+}
+#goal { font-size: 1.35rem; }
+
+/* 1-b. 배너 3초 유지 + 탭으로 닫기 (.show 동안만 터치 받음, 닫을 땐 .show 빼고 .hide) */
+.stage-banner.show {
+  animation: stageBanner3 3s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.stage-banner.show::after {
+  content: "탭해서 닫기";
+  position: absolute; left: 50%; top: 100%;
+  transform: translate(-50%, 6px);
+  font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+}
+.stage-banner.hide { animation: stageBannerOut 0.2s ease-in forwards; }
+@keyframes stageBanner3 {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  8% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  14%, 88% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -65%) scale(0.95); }
+}
+@keyframes stageBannerOut {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+}
+
+/* 2-a. 매치 팝: 어두운 타일 배경 없이, 행성 색으로 밝게 번쩍 */
+.tile.matched { background: transparent !important; box-shadow: none !important; }
+.tile.matched::before {
+  content: "";
+  position: absolute; inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, var(--pop, #fff) 38%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+  animation: popFlash 0.42s ease-out forwards;
+}
+.tile.matched .planet { filter: brightness(1.6) saturate(1.25) !important; }
+.tile.matched.match-crater   { --pop: #ff9a84; }
+.tile.matched.match-cloud    { --pop: #cdeeff; }
+.tile.matched.match-stripe   { --pop: #c3a6ff; }
+.tile.matched.match-ring     { --pop: #ffbd6e; }
+.tile.matched.match-moon     { --pop: #8ef0c0; }
+.tile.matched.match-asteroid { --pop: #e2b98c; }
+.tile.matched[class*="match-special"] { --pop: #fff1a8; }
+@keyframes popFlash {
+  0% { opacity: 0; transform: scale(0.5); }
+  25% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* 2-b. +점수는 배지 위, 배지는 더 위쪽으로 분리 */
+.combo-badge { top: 9%; z-index: 25; }
+.score-float { z-index: 40; }

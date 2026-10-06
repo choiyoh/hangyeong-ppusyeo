@@ -1,6 +1,6 @@
 (() => {
-  const parts = ["game.b64.0", "game.b64.1"];
-  Promise.all(parts.map(p => fetch(p + "?v=1").then(r => r.text())))
+  const parts = ["game.b64.0a","game.b64.0b","game.b64.1a","game.b64.1b"];
+  Promise.all(parts.map(p => fetch(p + "?v=2").then(r => r.text())))
     .then(async chunks => {
       const b64 = chunks.join("");
       const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));

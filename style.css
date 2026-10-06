@@ -354,7 +354,7 @@ html, body {
   box-shadow: 0 0 6px #fff;
 }
 
-/* 폭탄: 뿐족한 별 */
+/* 폭탄: 뾰족한 별 */
 .planet.special-bomb {
   width: 78%;
   height: 78%;
@@ -1126,3 +1126,102 @@ body[data-stage="5"] .stage-chip {
 .btn-ghost:hover { opacity: 0.85; }
 .btn-ghost:active { opacity: 1; transform: scale(0.98); }
 .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+
+/* 특수 조합 FX — 일반 특수보다 한 단계 세게 */
+.special-fx.fx-combo-cross {
+  width: 0; height: 0;
+}
+.special-fx.fx-combo-cross::before,
+.special-fx.fx-combo-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #fff8d0 15%, #fff 50%, #fff8d0 85%, transparent);
+  box-shadow: 0 0 16px #fff, 0 0 36px #ffd76a, 0 0 60px rgba(255,180,60,0.85);
+  transform: translate(-50%, -50%);
+  animation: fxComboCross 0.6s ease-out forwards;
+}
+.special-fx.fx-combo-cross::before { width: calc(var(--combo-w, 1) * 900%); height: calc(var(--combo-t, 1) * 18px); }
+.special-fx.fx-combo-cross::after  { height: calc(var(--combo-w, 1) * 900%); width: calc(var(--combo-t, 1) * 18px); }
+
+.special-fx.fx-combo-big {
+  width: calc(var(--combo-size, 5) * (var(--tile) + var(--gap)));
+  height: calc(var(--combo-size, 5) * (var(--tile) + var(--gap)));
+  border-radius: 22%;
+  border: 4px solid #fff;
+  background: radial-gradient(circle, rgba(255,255,255,0.75) 0%, rgba(255,154,213,0.45) 40%, rgba(126,224,255,0.25) 65%, transparent 75%);
+  box-shadow: 0 0 30px rgba(255,255,255,0.9), 0 0 60px rgba(255,122,184,0.7);
+  animation: fxComboBig 0.7s ease-out forwards;
+}
+
+.special-fx.fx-combo-all {
+  position: absolute;
+  left: 50% !important; top: 50% !important;
+  width: 120%; height: 120%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, rgba(255,240,200,0.9) 25%, rgba(255,94,200,0.6) 50%, rgba(155,43,255,0.3) 70%, transparent 80%);
+  animation: fxComboAll 0.85s ease-out forwards;
+  z-index: 10;
+}
+
+@keyframes fxComboCross {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes fxComboBig {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.2) rotate(-8deg); }
+  40% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.25); }
+}
+@keyframes fxComboAll {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.1); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(0.9); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
+}
+
+/* 조합용 보드 펀치 — 기존 bomb보다 세게 */
+.board-frame.punch-combo { animation: punchCombo 0.5s ease-out; }
+@keyframes punchCombo {
+  0% { transform: scale(1); }
+  18% { transform: scale(1.06) rotate(-0.8deg); }
+  36% { transform: scale(0.97) rotate(0.6deg) translateX(4px); }
+  55% { transform: scale(1.03) translateX(-4px); }
+  100% { transform: scale(1) rotate(0) translateX(0); }
+}
+/* 히트스톱 100ms 동안 보드 살짝 하얗게 */
+.board-frame.combo-freeze .board { filter: brightness(1.6) saturate(1.2); transition: filter 0.1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .board-frame.punch-combo { animation: none !important; }
+  .special-fx.fx-combo-cross::before,
+  .special-fx.fx-combo-cross::after,
+  .special-fx.fx-combo-big,
+  .special-fx.fx-combo-all { animation: none !important; opacity: 0; }
+}
+
+
+/* 줄+사각: 한 축만 3줄 너비 (기본 가로, .vertical이면 세로) */
+.special-fx.fx-combo-line { width: 0; height: 0; }
+.special-fx.fx-combo-line::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 900%;
+  height: calc(var(--combo-t, 3) * (var(--tile) + var(--gap)));
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(126,224,255,0.7) 12%, #fff 50%, rgba(126,224,255,0.7) 88%, transparent);
+  box-shadow: 0 0 18px #fff, 0 0 40px rgba(126,224,255,0.9);
+  transform: translate(-50%, -50%);
+  animation: fxComboCross 0.6s ease-out forwards;
+}
+.special-fx.fx-combo-line.vertical::before {
+  width: calc(var(--combo-t, 3) * (var(--tile) + var(--gap)));
+  height: 900%;
+  background: linear-gradient(180deg, transparent, rgba(126,224,255,0.7) 12%, #fff 50%, rgba(126,224,255,0.7) 88%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .special-fx.fx-combo-line::before { animation: none !important; opacity: 0; }
+}

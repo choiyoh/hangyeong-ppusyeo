@@ -568,6 +568,186 @@
     return clear;
   }
 
+  // ---- Special × Special swap combos (Candy Crush style) ----
+  // Pure clear-set builders: (r, c) = drop cell, clipped to board edges.
+  function comboRect(r0, c0, rad, out = new Set()) {
+    for (let r = r0 - rad; r <= r0 + rad; r++) {
+      for (let c = c0 - rad; c <= c0 + rad; c++) {
+        if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) out.add(r * SIZE + c);
+      }
+    }
+    return out;
+  }
+
+  function comboRows(r0, half, out = new Set()) {
+    for (let r = r0 - half; r <= r0 + half; r++) {
+      if (r < 0 || r >= SIZE) continue;
+      for (let c = 0; c < SIZE; c++) out.add(r * SIZE + c);
+    }
+    return out;
+  }
+
+  function comboCols(c0, half, out = new Set()) {
+    for (let c = c0 - half; c <= c0 + half; c++) {
+      if (c < 0 || c >= SIZE) continue;
+      for (let r = 0; r < SIZE; r++) out.add(r * SIZE + c);
+    }
+    return out;
+  }
+
+  const COMBO_RANK = { "special-line": 0, "special-square": 1, "special-wrap": 2, "special-bomb": 3 };
+  const SHORT = { "special-line": "line", "special-square": "square", "special-wrap": "wrap", "special-bomb": "bomb" };
+
+  function comboKey(sa, sb) {
+    const [x, y] = (COMBO_RANK[sa] ?? 9) <= (COMBO_RANK[sb] ?? 9) ? [sa, sb] : [sb, sa];
+    return `${SHORT[x]}+${SHORT[y]}`;
+  }
+
+  // Returns { key, first:Set, secondRad:0|1|2|3, noChain:bool }
+  // secondRad > 0 => after a gravity beat, clear (2*rad+1)² again at the same center.
+  const COMBO_TABLE = {
+    "line+line": (r, c) => ({ first: comboCols(c, 0, comboRows(r, 0)), secondRad: 0 }),
+    "line+square": (r, c, axis) => ({
+      first: axis === "v" ? comboCols(c, 1) : comboRows(r, 1),
+      secondRad: 0,
+    }),
+    "line+wrap": (r, c) => ({ first: comboCols(c, 1, comboRows(r, 1)), secondRad: 0 }),
+    "square+square": (r, c) => ({ first: comboRect(r, c, 2), secondRad: 0 }),
+    "square+wrap": (r, c) => ({ first: comboRect(r, c, 2), secondRad: 1 }),
+    "wrap+wrap": (r, c) => ({ first: comboRect(r, c, 2), secondRad: 2 }),
+    "line+bomb": (r, c) => ({ first: comboCols(c, 2, comboRows(r, 2)), secondRad: 0 }),
+    "square+bomb": (r, c) => ({ first: comboRect(r, c, 3), secondRad: 0 }),
+    "wrap+bomb": (r, c) => ({ first: comboRect(r, c, 3), secondRad: 3 }),
+    "bomb+bomb": () => ({ first: comboRect(0, 0, SIZE * 2), secondRad: 0, noChain: true }),
+  };
+
+  function buildComboClear(r, c, sa, sb, lineAxis = "h") {
+    const key = comboKey(sa, sb);
+    const fn = COMBO_TABLE[key];
+    if (!fn) return null;
+    const res = fn(r, c, lineAxis);
+    return { key, first: res.first, secondRad: res.secondRad || 0, noChain: !!res.noChain };
+  }
+
+  function comboPunch() {
+    const frame = boardEl?.closest(".board-frame");
+    if (!frame) return;
+    frame.classList.remove("punch-line", "punch-bomb", "punch-square", "punch-wrap", "punch-match", "punch-combo");
+    void frame.offsetWidth;
+    frame.classList.add("punch-combo");
+    setTimeout(() => frame.classList.remove("punch-combo"), 520);
+  }
+
+  // Art hooks: fx-combo-cross (--combo-t 1/3/5), fx-combo-line (+vertical) for line+square,
+  // fx-combo-big (--combo-size 5/7), fx-combo-all for bomb+bomb.
+  const COMBO_FX = {
+    "line+line": { cls: "fx-combo-cross", t: 1 },
+    "line+wrap": { cls: "fx-combo-cross", t: 3 },
+    "line+bomb": { cls: "fx-combo-cross", t: 5 },
+    "line+square": { cls: "fx-combo-line", t: 3 },
+    "square+square": { cls: "fx-combo-big", size: 5 },
+    "square+wrap": { cls: "fx-combo-big", size: 5 },
+    "wrap+wrap": { cls: "fx-combo-big", size: 5 },
+    "square+bomb": { cls: "fx-combo-big", size: 7 },
+    "wrap+bomb": { cls: "fx-combo-big", size: 7 },
+    "bomb+bomb": { cls: "fx-combo-all" },
+  };
+
+  function spawnComboFx(key, idx, axis, sizeOverride) {
+    const spec = COMBO_FX[key];
+    if (!fxLayer || !spec) return;
+    const center = tileCenter(idx);
+    if (!center) return;
+    const fx = document.createElement("span");
+    fx.className = `special-fx ${spec.cls}`;
+    if (spec.cls === "fx-combo-line" && axis === "v") fx.classList.add("vertical");
+    if (spec.t) fx.style.setProperty("--combo-t", String(spec.t));
+    if (spec.cls === "fx-combo-cross" || spec.cls === "fx-combo-line") {
+      // Beams are % of the host box; give it one tile so 900% spans the board.
+      const ts = tileSize();
+      fx.style.width = `${ts}px`;
+      fx.style.height = `${ts}px`;
+    }
+    const size = sizeOverride || spec.size;
+    if (size) fx.style.setProperty("--combo-size", String(size));
+    fx.style.left = `${center.x}px`;
+    fx.style.top = `${center.y}px`;
+    fxLayer.appendChild(fx);
+    setTimeout(() => fx.remove(), 900);
+  }
+
+  async function comboPulse(clearSet, fx) {
+    render(clearSet);
+    requestAnimationFrame(() => {
+      spawnBursts(clearSet);
+      if (fx) spawnComboFx(fx.key, fx.idx, fx.axis, fx.size);
+      comboPunch();
+    });
+    await sleep(MATCH_MS);
+  }
+
+  // Clears `area` (combo cells already excluded from chaining), then after one beat
+  // fires other specials caught inside with their own effects (unless noChain).
+  async function comboClearWithChain(area, fx, noChain) {
+    const chainSeeds = [];
+    if (!noChain) {
+      area.forEach((idx) => {
+        if (grid[idx]?.special) chainSeeds.push(idx);
+      });
+    }
+    const seedSet = new Set(chainSeeds);
+    const direct = new Set([...area].filter((i) => !seedSet.has(i) && grid[i]));
+    await comboPulse(direct, fx);
+    nullTiles(direct);
+    if (chainSeeds.length) {
+      render();
+      await sleep(WRAP_BEAT_MS);
+      const chain = new Set([...gatherClears(chainSeeds)].filter((i) => grid[i]));
+      await clearAndRefill(chain, [], collectSpecialFx(chain));
+    } else {
+      await applyGravity();
+    }
+  }
+
+  async function activateComboSwap(from, to) {
+    const ta = cell(from.r, from.c);
+    const tb = cell(to.r, to.c);
+    const swapAxis = from.c !== to.c ? "h" : "v";
+    const lineTile = ta.special === "special-line" ? ta : tb.special === "special-line" ? tb : null;
+    const lineAxis = lineTile ? lineTile.axis || swapAxis : swapAxis;
+    const combo = buildComboClear(to.r, to.c, ta.special, tb.special, lineAxis);
+    if (!combo) return false;
+
+    const centerIdx = to.r * SIZE + to.c;
+    const fromIdx = from.r * SIZE + from.c;
+    const fx = { key: combo.key, idx: centerIdx, axis: lineAxis };
+
+    // ~100ms freeze (hit-stop flash) so the combo reads differently from a normal special
+    const frame = boardEl?.closest(".board-frame");
+    render(new Set(), { a: from, b: to });
+    frame?.classList.add("combo-freeze");
+    await sleep(100);
+    frame?.classList.remove("combo-freeze");
+
+    // Both combo specials are consumed by the combo (never chain their own effects)
+    grid[fromIdx] = makeTile(ta.type);
+    grid[centerIdx] = makeTile(tb.type);
+    combo.first.add(fromIdx);
+    combo.first.add(centerIdx);
+
+    await comboClearWithChain(combo.first, fx, combo.noChain);
+
+    if (combo.secondRad > 0) {
+      await sleep(WRAP_BEAT_MS);
+      const second = comboRect(to.r, to.c, combo.secondRad);
+      await comboClearWithChain(second, { ...fx, size: combo.secondRad * 2 + 1 }, false);
+    }
+    return true;
+  }
+
+  // Exposed for logic tests (no DOM needed to call the builders)
+  window.__hpCombo = { buildComboClear, comboKey, COMBO_TABLE, COMBO_FX, SIZE };
+
   function collectSpecialFx(clearSet) {
     const fx = [];
     clearSet.forEach((idx) => {
@@ -952,6 +1132,18 @@
     const aTile = cell(from.r, from.c);
     const bTile = cell(pos.r, pos.c);
     const specialMove = (aTile && aTile.special) || (bTile && bTile.special);
+
+    if (aTile?.special && bTile?.special) {
+      // Special × Special: skip 3-match check, always fire combo, 1 move, both consumed
+      moves -= 1;
+      await activateComboSwap(from, pos);
+      await resolveBoard();
+      lastSwap = null;
+      checkEnd();
+      render();
+      busy = false;
+      return;
+    }
 
     if (specialMove) {
       moves -= 1;

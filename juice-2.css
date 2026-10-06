@@ -1,0 +1,58 @@
+.stage-banner .goal-icon { width: 30px; height: 30px; flex: none; }
+.stage-banner b { color: #ffb4a2; }
+.stage-banner.show { animation: stageBanner 1.8s cubic-bezier(0.2, 1.2, 0.4, 1) forwards; }
+@keyframes stageBanner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  25%, 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(0.95); }
+}
+
+/* moves warn */
+.stat.moves.low-moves { border-color: #ff6b6b; box-shadow: 0 0 0 1px #ff6b6b, 0 0 16px rgba(255,90,90,0.45); }
+.stat.moves.low-moves .value { color: #ff7a7a; animation: lowMoves 1s ease-in-out infinite; }
+.stat.moves.critical .value { color: #ff4d4d; animation-duration: 0.5s; }
+@keyframes lowMoves { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); text-shadow: 0 0 14px rgba(255,80,80,0.9); } }
+
+/* invalid swap */
+.tile.invalid-shake .planet { animation: invalidShake 0.36s ease-in-out; filter: brightness(0.85) saturate(0.7); }
+.tile.invalid-shake::after {
+  content: ""; position: absolute; inset: 2px; border-radius: 30%;
+  border: 2px solid rgba(255,90,90,0.9); pointer-events: none;
+  animation: invalidRing 0.36s ease-out forwards;
+}
+@keyframes invalidShake {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -5px 0; } 40% { translate: 5px 0; }
+  60% { translate: -3px 0; } 80% { translate: 3px 0; }
+}
+@keyframes invalidRing { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* hint */
+.tile.hint .planet { animation: hintBreath 1s ease-in-out infinite; }
+.tile.hint::after {
+  content: ""; position: absolute; inset: 1px; border-radius: 30%;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.8), 0 0 14px rgba(255,255,255,0.6);
+  pointer-events: none;
+  animation: hintGlow 1s ease-in-out infinite;
+}
+@keyframes hintBreath { 0%, 100% { scale: 1; } 50% { scale: 1.12; } }
+@keyframes hintGlow { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+/* message toast */
+.message {
+  padding: 0 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  min-height: 2.7em;
+  display: flex; align-items: center; justify-content: center;
+}
+.app { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.tile { position: relative; }
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-bump, .fly-to-goal, .score-float, .combo-badge, .stage-banner.show,
+  .stat.moves.low-moves .value, .tile.invalid-shake .planet, .tile.hint .planet, .tile.hint::after { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
+  .stage-banner.show { opacity: 1; transform: translate(-50%, -50%); }
+}
